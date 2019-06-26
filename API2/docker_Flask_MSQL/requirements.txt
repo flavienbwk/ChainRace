@@ -1,0 +1,9 @@
+PyMySQL
+Flask==0.10.1
+SQLAlchemy==1.0
+Flask-WTF==0.9.3
+Flask-Script
+Flask-Migrate
+simplejson
+flask-mysqldb
+Pyjwt

@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+
+  web:
+    build: .
+    command: python /code/app/app.py
+    ports:
+    - "8082:8082"
+    volumes:
+    - .:/code
+    links:
+    - db
+    hostname: myappserver
+
+  db:
+    volumes:
+    - ./mysql-dump:/docker-entrypoint-initdb.d
+    - my-datavolume:/var/lib/mysql
+    hostname: mysqlserver
+    image: orchardup/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: p@ssw0rd123
+      MYSQL_DATABASE: wordpress
+
+volumes:
+  my-datavolume:
