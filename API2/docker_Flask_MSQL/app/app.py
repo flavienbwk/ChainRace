@@ -3,6 +3,7 @@ from flask_mysqldb import MySQL
 from flask_sqlalchemy import SQLAlchemy
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from db import User, Vehicule, Model, Wallet, Contest, Race, Stat
 import uuid
 import jwt
 import datetime
@@ -18,16 +19,6 @@ app.config['MYSQL_DB'] = ''
 
 db = SQLAlchemy(app)
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    public_id = db.Column(db.String(128), unique=True, nullable=True)
-    username = db.Column(db.String(64), unique=True, nullable=False)
-    password = db.Column(db.String(64), nullable=False)
-    email = db.Column(db.String(255), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=func.now)
-
-    def __repr__(self):
-        return f"User('{self.public_id}', '{self.username}', '{self.email}', '{self.created_at}')"
 
 mysql = MySQL(app)
 
@@ -36,17 +27,20 @@ app.config['SECRET_KEY'] = 'thatsasecret'
 
 def token_required(f):
     # @wraps(f)
-    def wrapper(*args, **kwargs):
-        token = request.headers.get('JWT-token')
+    def decorated(*args, **kwargs):
+        token = None
+        if 'x-access-token' in request.headers:
+            token = request.headers['x-access-token']
         if not token:
-            return jsonify({'message' : 'Token is missing'}), 403
+            return jsonify({'message': 'Token is missing'}), 401
         try:
             data = jwt.decode(token, app.config['SECRET_KEY'])
+            current_user = User.query.filter_by(public_id=data['public_id']).first()
         except:
-            return jsonify({'message' : 'Token is invalid'}), 403
+            return jsonify({'message': 'token is invalid'}), 403
 
-        return f(*args, **kwargs)
-    return wrapper
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 
 
@@ -80,14 +74,14 @@ def login():
     else if not check_password_hash(user.get('hash_password'), auth.get('password'))
         return jsonify({'message' : 'invalid password'})
     else 
-        token = jwt.encode({'user' : auth.get('username'), 'exp' : datetime.datetime.utcnow() + datetime.timedelta(hours=24)}, app.config['SECRET_KEY'])
+        token = jwt.encode({'public_id' : auth.get('public_id'), 'exp' : datetime.datetime.utcnow() + datetime.timedelta(hours=24)}, app.config['SECRET_KEY'])
         return jsonify({'token' : token.decode('UTF-8')})
     return jsonify({'message' : 'didnt go in any loop. gotta investigate that quickly'})
 
 # route senseY etre fonctionnelle
 @app.route('/users/get/all')
 @token_required
-def get_all_users():
+def get_all_users(current_user):
     cur = mysql.connection.cursor()
     resValue = cur.execute("SELECT * FROM users")
     if resValue > 0:
@@ -98,7 +92,7 @@ def get_all_users():
 # route senseY etre fonctionnelle
 @app.route('/users/get/<public_id>')
 @token_required
-def get_one_user(public_id):
+def get_one_user(current_user, public_id):
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM users where ids=" + public_id)
     user = cur.fetchone()
@@ -110,7 +104,7 @@ def get_one_user(public_id):
 # route senseY etre fonctionnelle
 @app.route('/users/delete/<public_id>', methods=['DELETE'])
 @token_required
-def delete_one_user(public_id):
+def delete_one_user(current_user, public_id):
     cur = mysql.connection.cursor()
     cur.execute("SELECT * FROM users where ids=" + public_id)
     user = cur.fetchone()
@@ -123,7 +117,8 @@ def delete_one_user(public_id):
 
 
 @app.route('/vehicule/claim/<userid>', methods=['POST'])
-def claim_vehicule(userid):
+@token_required
+def claim_vehicule(current_user, userid):
     return ''
 
 
