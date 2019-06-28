@@ -1,4 +1,4 @@
-from app import db
+from chainRaceWeb import db
 import datetime
 
 

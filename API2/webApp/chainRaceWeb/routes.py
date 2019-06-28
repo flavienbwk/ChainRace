@@ -1,29 +1,9 @@
-from flask import Flask, request, make_response, jsonify
-from flask_mysqldb import MySQL
-from flask_sqlalchemy import SQLAlchemy
+from flask import request, jsonify
+from chainRaceWeb import app
+from chainRaceWeb.models import User, Vehicule, Model, Wallet, Contest, Race, Stat
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import User, Vehicule, Model, Wallet, Contest, Race, Stat
-import uuid
-import jwt
-import datetime
-
-app = Flask(__name__)
-
-# configure db
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///chainrace.db'
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
-app.config['MYSQL_DB'] = ''
-
-db = SQLAlchemy(app)
-
-
-mysql = MySQL(app)
-
-#jwt related
-app.config['SECRET_KEY'] = 'thatsasecret'
+import uuid, jwt, datetime
 
 def token_required(f):
     # @wraps(f)
@@ -71,9 +51,9 @@ def login():
     cur.close()
     if user is None:
         return jsonify({'message' : 'invalid username'})
-    else if not check_password_hash(user.get('hash_password'), auth.get('password'))
+    elif not check_password_hash(user.get('hash_password'), auth.get('password')):
         return jsonify({'message' : 'invalid password'})
-    else 
+    else:
         token = jwt.encode({'public_id' : auth.get('public_id'), 'exp' : datetime.datetime.utcnow() + datetime.timedelta(hours=24)}, app.config['SECRET_KEY'])
         return jsonify({'token' : token.decode('UTF-8')})
     return jsonify({'message' : 'didnt go in any loop. gotta investigate that quickly'})
@@ -98,8 +78,8 @@ def get_one_user(current_user, public_id):
     user = cur.fetchone()
     cur.close()
     if not user:
-        return jsonify('message': 'user not found')
-    return jsonify('user': user)
+        return jsonify({'message': 'user not found'})
+    return jsonify({'user': user})
 
 # route senseY etre fonctionnelle
 @app.route('/users/delete/<public_id>', methods=['DELETE'])
@@ -109,37 +89,14 @@ def delete_one_user(current_user, public_id):
     cur.execute("SELECT * FROM users where ids=" + public_id)
     user = cur.fetchone()
     if not user:
-        return jsonify('message': 'user not found')
+        return jsonify({'message': 'user not found'})
     cur.execute("DELETE FROM users where ids=" + public_id)
     mysql.connection.commit()
     cur.close()
-    return jsonify('message': 'user deleted')
+    return jsonify({'message': 'user deleted'})
 
 
 @app.route('/vehicule/claim/<userid>', methods=['POST'])
 @token_required
 def claim_vehicule(current_user, userid):
     return ''
-
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
-
-# class Database:
-#     def __init__(self):
-#         host = "127.0.0.1"
-#         user = "test"
-#         password = "password"
-#         db = "employees"
-#         self.con = pymysql.connect(host=host, user=user, password=password, db=db, cursorclass=pymysql.cursors.
-#                                    DictCursor)
-#         self.cur = self.con.cursor()
-
-#     def list_employees(self):
-#         self.cur.execute("SELECT first_name, last_name, gender FROM employees LIMIT 50")
-#         result = self.cur.fetchall()
-#         return result
