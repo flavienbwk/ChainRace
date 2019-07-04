@@ -1,5 +1,6 @@
 from flask import Flask, request, session, jsonify
 from db import Database, UserDB, VehiculeDB, ContestDB
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'yolo'
@@ -59,13 +60,19 @@ def assign_vehicule_to_user(user_username, vehicule_public_id):
         return jsonify({'message': str(e)})
     return jsonify({'message': 'Bad Request Method'})
 
+@app.route('/user/<user_username>/reward/<nb_tokens>', methods=['POST']) # pinged par l'API d'Eliot
+def reward_user_with_tokens(user_username, nb_tokens):
+    if request.method == 'POST':
+        description = request.form.get('desc')
+        try:
+            tokens_given = UserDB.reward_with_token(user_username, token_amount, description)
+            return jsonify({'message': tokens_given})
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'bad request method'})
 
-@app.route('/user/<user_public_id>/reward/<nb_tokens>', methods=['POST']) # Add tokens to user POST <user>,<nb token> // ping API d'Eliot
-def reward_user_with_tokens(user_public_id, nb_tokens):
-    # if request.method == 'POST':
-    return ''
-
-@app.route('/user/<user_username>/get/all/models', methods=['GET']) # Liste de tous les models from un user GET <user ID>
+@app.route('/user/<user_username>/get/all/models', methods=['GET'])
 def get_all_models(user_username):
     if request.method == 'GET':
         try:
@@ -73,7 +80,46 @@ def get_all_models(user_username):
             return jsonify({'message': models})
         except Exception as e:
             return jsonify({'message': str(e)})
-    return jsonify({'message': 'wrong method'})
+    else:
+        return jsonify({'message': 'wrong method'})
+
+
+@app.route('/user/get/won/money', methods=['POST'])
+def get_won_money():
+
+    if request.method == 'POST':
+        try:
+            users = UserDB.get_won_money()
+            n = 0
+            for user in users:
+                total = 0
+                for i in user['tokens']:
+                    total += int(i[0])
+                users[n]['total'] = total
+                users[n]['password'] = ''
+                n += 1
+            return jsonify('message': users)
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'wrong method'})
+
+
+@app.route('/user/<user_username>/get/all/money', methods=['POST'])
+def request_eliot_for_tokens(user_username):
+
+    if request.method == 'POST':
+        try:
+            user = UserDB.getOneUser(user_username)
+            url = 'http:eliotctl.fr/interact_blockchain/ask/money'
+            payload = jsonify({'username': user_username, 'public_key': user['public_key'], 'token': 'ULTIMATE_TOKEN'})
+            response = requests.request("POST", url, data=payload).text
+            return jsonify({'message': response})
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'wrong method'})
+
 
 # vehicule
 @app.route('/vehicule/create', methods=['POST'])
@@ -91,8 +137,9 @@ def add_car():
     else:
         return jsonify({'message': 'Bad Request Method'})
 
+
 # contest
-@app.route('/contest/create/by/<user_username>', methods=['POST']) # Creation de competition POST <compet’ ID>, <user ID>
+@app.route('/contest/create/by/<user_username>', methods=['POST'])
 def create_contest(user_username):
     if request.method == 'POST':
         try:
@@ -114,3 +161,15 @@ def get_all_contest():
             return jsonify({'message': str(e)})
     else:
         return jsonify({'message': 'Bad Request Method'})
+
+@app.route('/model/new', methods=['POST'])
+def get_new_model():
+    if request.method == 'POST':
+        try:
+            model = request.form.get('model')
+            UserDB.add_model(model)
+            return jsonify({'message': 'model created'})
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'bad request method'})

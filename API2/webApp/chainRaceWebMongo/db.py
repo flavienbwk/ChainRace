@@ -1,5 +1,7 @@
 from pymongo import MongoClient
-import uuid
+from bson.json_util import dumps
+import uuid, datetime
+
 
 class Database:
 
@@ -57,23 +59,58 @@ class UserDB:
     def create_contest(user_username, infos):
         database = Database.connectDB()
         try:
+            infos['started_at'] = datetime.now()
             contest_id = str(uuid.uuid4())
             userCollection = database['user']
             contestCollection = database['contest']
             user = userCollection.find({'username': user_username})
             if infos['name'] is None:
                 return 'need a name please'
-            elif infos['started_at'] is None:
-                return 'need a started'
+            elif infos['ends_at'] is None:
+                return 'need an ending timestamp'
             if len(list(user)) == 1:
-                save = contestCollection.insert({'ids': contest_id, 'name': infos['name'], 'starts_at': infos['starts_at']})
-                userUpd = userCollection.update({'username' :user_username}, {'$push' : {'contest_id': contest_id}})
+                save = contestCollection.insert({'ids': contest_id, 'name': infos['name'], 'starts_at': infos['starts_at'], 'ends_at': infos['ends_at']})
+                userUpd = userCollection.update({'username': user_username}, {'$push' : {'contest_id': contest_id}})
                 return 'Contest created'
             else:
                 return 'no user found'
         except Exception as e:
             return str(e)
 
+    def reward_with_token(user_username, token_amount, description):
+        database = Database.connectDB()
+        collection = database['user']
+        try:
+            user = collection.find({'username': user_username})
+            timestamp = datetime.now()
+            if len(list(user)) == 1:
+                userUpd = collection.update({'username': user_username}, {'$push': {'tokens': [token_amount, description, timestamp]}})
+                return 'tokens added at' + timestamp + 'with desc :' + description
+            else:
+                return 'user not found'
+        except Exception as e:
+            return str(e)
+
+    def get_won_money():
+        database = Database.connectDB()
+        collection = database['user']
+        try:
+            result = collection.find()
+            return dumps(result)
+        except Exception as e:
+            return str(e)
+
+    def add_model(user_username, model):
+        database = Database.connectDB()
+        userCollection = database['user']
+        modelCollection = database['model']
+        try:
+            modelID = str(uuid.uuid4())
+            timestamp = datetime.now()
+            newModel = modelCollection.insert({'ids': modelID, 'model': model})
+            user = userCollection.update({'username': user_username}, {'$push': {'models': [modelID, timestamp]}})
+        except Exception as e:
+            return str(e)
 
     def checkUser(username, password):
         database = Database.connectDB()
