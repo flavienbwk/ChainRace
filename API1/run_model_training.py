@@ -8,4 +8,5 @@ region = session.boto_session.region_name
 image = '${}.dkr.ecr.{}.amazonaws.com/quiltdata/sagemaker-demo'.format(
     account, region)
 clf = sage.estimator.Estimatort(
-    image, role, 1, 'ml.c4.2xlarge', output_path="s3://quilt-exemple/quilt/quilt")
+    image, role, 1, 'ml.c4.2xlarge', output_path="s3://quilt-exemple/quilt/quilt", sagemaker_session=sess)
+clf.fit()
