@@ -1,6 +1,7 @@
 from flask import Flask, request, session, jsonify
 from db import Database, UserDB, VehiculeDB, ContestDB
-import requests
+from bson import json_util
+import requests, json
 
 app = Flask(__name__)
 app.secret_key = 'yolo'
@@ -15,7 +16,7 @@ def getDB():
 def index():
     return jsonify({'message': 'root'})
 
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['POST']) #CERTIFIED
 def register():
     if request.method == 'POST':
         formulaire = request.form
@@ -30,7 +31,7 @@ def register():
     else:
         return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['POST']) #CERTIFIED
 def login():
     if request.method == 'POST':
         try:
@@ -48,24 +49,26 @@ def login():
 
 
 # user
-@app.route('/user/<user_username>/assign/<vehicule_public_id>', methods=['GET'])
-def assign_vehicule_to_user(user_username, vehicule_public_id):
-    try:
-        assignement = UserDB.assign_vehicule_to_user(user_username, vehicule_public_id)
-        if assignement == 'checked':
-            return jsonify({'message': 'vehicule assigned successfully'})
-        else:
-            return jsonify({'error' : assignement})
-    except Exception as e:
-        return jsonify({'message': str(e)})
-    return jsonify({'message': 'Bad Request Method'})
+@app.route('/user/<user_username>/assign/<vehicule_name>', methods=['GET']) #CERTIFIED
+def assign_vehicule_to_user(user_username, vehicule_name):
+    if request.method == 'GET':
+        try:
+            assignement = UserDB.assign_vehicule_to_user(user_username, vehicule_name)
+            if assignement == 'checked':
+                return jsonify({'message': 'vehicule assigned successfully'})
+            else:
+                return jsonify({'error' : assignement})
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/user/<user_username>/reward/<nb_tokens>', methods=['POST']) # pinged par l'API d'Eliot
+@app.route('/user/<user_username>/reward/<nb_tokens>', methods=['POST']) # pinged par l'API d'Eliot #ALMOST CERTIFIED
 def reward_user_with_tokens(user_username, nb_tokens):
     if request.method == 'POST':
         description = request.form.get('desc')
         try:
-            tokens_given = UserDB.reward_with_token(user_username, token_amount, description)
+            tokens_given = UserDB.reward_with_token(user_username, nb_tokens, description)
             return jsonify({'message': tokens_given})
         except Exception as e:
             return jsonify({'message': str(e)})
@@ -84,21 +87,22 @@ def get_all_models(user_username):
         return jsonify({'message': 'wrong method'})
 
 
-@app.route('/user/get/won/money', methods=['POST'])
+@app.route('/user/get/won/money', methods=['GET']) #ALMOST CERTIFIED
 def get_won_money():
 
-    if request.method == 'POST':
+    if request.method == 'GET':
         try:
-            users = UserDB.get_won_money()
+            users = json.loads(json.dumps(list(UserDB.get_won_money()), default=json_util.default))
             n = 0
             for user in users:
                 total = 0
-                for i in user['tokens']:
-                    total += int(i[0])
+                if "tokens" in user:
+                    for i in user['tokens']:
+                        total += int(i[0])
                 users[n]['total'] = total
-                users[n]['password'] = ''
+                del users[n]['password']
                 n += 1
-            return jsonify('message': users)
+            return json.dumps({'message': users})
         except Exception as e:
             return jsonify({'message': str(e)})
     else:
@@ -122,28 +126,29 @@ def request_eliot_for_tokens(user_username):
 
 
 # vehicule
-@app.route('/vehicule/create', methods=['POST'])
-def add_car():
-    if request.method == 'POST':
-        formulaire = request.form
-        try:
-            vehicule = dict({'username': formulaire['username'], 'id': formulaire['id']})
-            if VehiculeDB.saveNewVehicule(vehicule) == True:
-                return jsonify({'message': 'Vehicule Created'})
-            else:
-                return jsonify({'message': 'ID already in use or no user found'})
-        except Exception as e:
-            return jsonify({'message': str(e)})
-    else:
-        return jsonify({'message': 'Bad Request Method'})
+# @app.route('/vehicule/create', methods=['POST'])
+# def add_car():
+#     if request.method == 'POST':
+#         formulaire = request.form
+#         try:
+#             vehicule = {'username': formulaire['username']}
+#             vehiculeID = VehiculeDB.saveNewVehicule(vehicule)
+#             if vehiculeID is not None:
+#                 return jsonify({'message': vehiculeID})
+#             else:
+#                 return jsonify({'message': 'ID already in use or no user found'})
+#         except Exception as e:
+#             return jsonify({'message': str(e)})
+#     else:
+#         return jsonify({'message': 'Bad Request Method'})
 
 
 # contest
-@app.route('/contest/create/by/<user_username>', methods=['POST'])
+@app.route('/contest/create/by/<user_username>', methods=['POST'])# CERTIFIED
 def create_contest(user_username):
     if request.method == 'POST':
         try:
-            infos = {'name': request.form.get('name'), 'starts_at': request.form.get('starts_at')}
+            infos = {'name': request.form.get('name'), 'ends_days': request.form.get('ends_days'), 'ends_hours': request.form.get('ends_hours')}
             contestCreation = UserDB.create_contest(user_username, infos)
             return jsonify({'message': contestCreation})
         except Exception as e:
@@ -151,23 +156,42 @@ def create_contest(user_username):
     else:
         return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/contest/get/all', methods=['GET'])
+@app.route('/contest/get/all', methods=['GET']) #CERTIFIED
 def get_all_contest():
     if request.method == 'GET':
         try:
             contests = ContestDB.get_all_contests()
-            return jsonify({'message': contests})
+            return contests
         except Exception as e:
             return jsonify({'message': str(e)})
     else:
         return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/model/new', methods=['POST'])
-def get_new_model():
+@app.route('/model/new/from/vehicule', methods=['POST'])
+def get_model_fron_vehicule():
     if request.method == 'POST':
         try:
             model = request.form.get('model')
-            UserDB.add_model(model)
+            user_username = request.form.get('username')
+            if UserDB.add_model_from_vehicule(model, user_username):
+                user = UserDB.getOneUser(user_username)
+                url = 'http:eliotctl.fr/api/add/model'
+                payload = jsonify({'username': user_username, 'public_key': user['public_key'], 'model': model, 'token': 'ULTIMATE_TOKEN'})
+                response = requests.request("POST", url, data=payload).text
+                return jsonify({'message': response})
+            else:
+                return jsonify({'message': 'couldnt add the model'})
+        except Exception as e:
+            return jsonify({'message': str(e)})
+    else:
+        return jsonify({'message': 'Bad Request Method'})
+
+@app.route('/model/new/by/<user_username>', methods=['POST'])
+def get_new_model(user_username):
+    if request.method == 'POST':
+        try:
+            model = request.form.get('model')
+            UserDB.add_model(user_username, model)
             return jsonify({'message': 'model created'})
         except Exception as e:
             return jsonify({'message': str(e)})

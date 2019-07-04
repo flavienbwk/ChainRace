@@ -1,5 +1,6 @@
 from pymongo import MongoClient
 from bson.json_util import dumps
+from flask import jsonify
 import uuid, datetime
 
 
@@ -29,18 +30,18 @@ class UserDB:
         except Exception as e:
             return str(e)
 
-    def assign_vehicule_to_user(user_username, vehicule_id):
+    def assign_vehicule_to_user(user_username, vehicule_name):
         database = Database.connectDB()
         userCollection = database['user']
         vehiculeCollection = database['vehicule']
         try:
             user = userCollection.find({'username': user_username})
-            vehicule = vehiculeCollection.find({'id': vehicule_id})
-            if len(list(user)) == 1 and len(list(vehicule)) == 1:
-                userCollection.update({'username' :user_username}, {'$set' : {'vehicule_id': vehicule_id}})
+            if len(list(user)) == 1:
+                vehicule = vehiculeCollection.insert({'name': vehicule_name})
+                userCollection.update({'username' :user_username}, {'$push' : {'vehicule_name': vehicule_name}})
                 return 'checked'
             else:
-                return 'either no user or no vehicule matched'
+                return 'no user matched'
         except Exception as e:
             return str(e)
 
@@ -59,15 +60,16 @@ class UserDB:
     def create_contest(user_username, infos):
         database = Database.connectDB()
         try:
-            infos['started_at'] = datetime.now()
+            infos['starts_at'] = str(datetime.datetime.utcnow())
+            infos['ends_at'] = str(datetime.datetime.utcnow() + datetime.timedelta(days=int(infos['ends_days']), hours=int(infos['ends_hours'])))
             contest_id = str(uuid.uuid4())
             userCollection = database['user']
             contestCollection = database['contest']
             user = userCollection.find({'username': user_username})
             if infos['name'] is None:
                 return 'need a name please'
-            elif infos['ends_at'] is None:
-                return 'need an ending timestamp'
+            elif len(list(contestCollection.find({'name': infos['name']}))) is not 0:
+                return 'name already exists'
             if len(list(user)) == 1:
                 save = contestCollection.insert({'ids': contest_id, 'name': infos['name'], 'starts_at': infos['starts_at'], 'ends_at': infos['ends_at']})
                 userUpd = userCollection.update({'username': user_username}, {'$push' : {'contest_id': contest_id}})
@@ -82,7 +84,7 @@ class UserDB:
         collection = database['user']
         try:
             user = collection.find({'username': user_username})
-            timestamp = datetime.now()
+            timestamp = str(datetime.datetime.utcnow())
             if len(list(user)) == 1:
                 userUpd = collection.update({'username': user_username}, {'$push': {'tokens': [token_amount, description, timestamp]}})
                 return 'tokens added at' + timestamp + 'with desc :' + description
@@ -96,7 +98,7 @@ class UserDB:
         collection = database['user']
         try:
             result = collection.find()
-            return dumps(result)
+            return result
         except Exception as e:
             return str(e)
 
@@ -106,9 +108,18 @@ class UserDB:
         modelCollection = database['model']
         try:
             modelID = str(uuid.uuid4())
-            timestamp = datetime.now()
+            timestamp = str(datetime.datetime.utcnow())
             newModel = modelCollection.insert({'ids': modelID, 'model': model})
             user = userCollection.update({'username': user_username}, {'$push': {'models': [modelID, timestamp]}})
+        except Exception as e:
+            return str(e)
+
+    def add_model_from_vehicule(model, user_username):
+        database = Database.connectDB()
+        collection = database['model']
+        try:
+            save = collection.insert({'model': model, 'username': user_username})
+            return True
         except Exception as e:
             return str(e)
 
@@ -120,11 +131,7 @@ class UserDB:
             if len(list(result)) == 1:
                 return True
             else:
-                result = collection.find({'email': username, 'password': password})
-                if len(list(result)) == 1:
-                    return True
-                else:
-                    return False
+                return False
         except Exception as e:
             return str(e)
 
@@ -149,13 +156,14 @@ class VehiculeDB:
         userCollection = database['user']
         vehiculeCollection = database['vehicule']
         try:
-            exist = vehiculeCollection.find({'id': infos['id']})
+            vehiculeID = uuid.uuid4()
+            exist = vehiculeCollection.find({'id': vehiculeID})
             userExist = userCollection.find({'username': infos['username']})
             if len(list(exist)) == 0 and len(list(userExist)) == 1:
                 save = vehiculeCollection.insert({'username': infos['username'], 'id': infos['id']})
-                return True
+                return vehiculeID
             else:
-                return False
+                return None
         except Exception as e:
             return str(e)
 
@@ -167,6 +175,6 @@ class ContestDB:
         collection = database['contest']
         try:
             contests = collection.find()
-            return list(contests)
+            return dumps(contests)
         except Exception as e:
             return str(e)
