@@ -9,7 +9,7 @@ transformer = sagemaker.transformer.Transformer(
     sagemaker_session=sess
 )
 transformer.transform(
-    's3://quilt-example/quilt/fashion_mnist/fashion-mnist_train.csv', 
+    's3://quilt-example/quilt/race_mnist/race-mnist_train.csv', 
     content_type='text/csv', 
     split_type='Line'
 )
