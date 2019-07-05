@@ -19,7 +19,7 @@ def index():
 @app.route('/register', methods=['POST']) #CERTIFIED
 def register():
     if request.method == 'POST':
-        formulaire = request.form
+        formulaire = request.json
         try:
             user = dict({'username': formulaire['username'], 'password': formulaire['password'], 'email': formulaire['email']})
             if UserDB.saveNewUser(user) == True:
@@ -35,10 +35,9 @@ def register():
 def login():
     if request.method == 'POST':
         try:
-            username = request.form['username']
-            password = request.form['password']
-            if UserDB.checkUser(username, password):
-                session['user'] = username
+            form = request.json
+            if UserDB.checkUser(form['username'], form['password']):
+                session['user'] = form['username']
                 return jsonify({'message': 'logged in'})
             else:
                 return jsonify({'message': 'Wrong Informations'})
@@ -66,7 +65,8 @@ def assign_vehicule_to_user(user_username, vehicule_name):
 @app.route('/user/<user_username>/reward/<nb_tokens>', methods=['POST']) # pinged par l'API d'Eliot #ALMOST CERTIFIED
 def reward_user_with_tokens(user_username, nb_tokens):
     if request.method == 'POST':
-        description = request.form.get('desc')
+        newform = request.json
+        description = newform.get('desc')
         try:
             tokens_given = UserDB.reward_with_token(user_username, nb_tokens, description)
             return jsonify({'message': tokens_given})
@@ -148,7 +148,8 @@ def request_eliot_for_tokens(user_username):
 def create_contest(user_username):
     if request.method == 'POST':
         try:
-            infos = {'name': request.form.get('name'), 'ends_days': request.form.get('ends_days'), 'ends_hours': request.form.get('ends_hours')}
+            newform = request.json
+            infos = {'name': newform['name'], 'ends_days': newform['ends_days'], 'ends_hours': newform['ends_hours']}
             contestCreation = UserDB.create_contest(user_username, infos)
             return jsonify({'message': contestCreation})
         except Exception as e:
@@ -167,12 +168,13 @@ def get_all_contest():
     else:
         return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/model/new/from/vehicule', methods=['POST'])
+@app.route('/model/new/from/vehicule', methods=['POST']) #ALMOST CERTIFIED
 def get_model_fron_vehicule():
     if request.method == 'POST':
         try:
-            model = request.form.get('model')
-            user_username = request.form.get('username')
+            newform = request.json
+            model = newform['model']
+            user_username = newform['username']
             if UserDB.add_model_from_vehicule(model, user_username):
                 user = UserDB.getOneUser(user_username)
                 url = 'http:eliotctl.fr/api/add/model'
@@ -186,11 +188,12 @@ def get_model_fron_vehicule():
     else:
         return jsonify({'message': 'Bad Request Method'})
 
-@app.route('/model/new/by/<user_username>', methods=['POST'])
+@app.route('/model/new/by/<user_username>', methods=['POST']) #ALMOST CERTIFIED
 def get_new_model(user_username):
     if request.method == 'POST':
         try:
-            model = request.form.get('model')
+            newform = request.json
+            model = newform['model']
             UserDB.add_model(user_username, model)
             return jsonify({'message': 'model created'})
         except Exception as e:
