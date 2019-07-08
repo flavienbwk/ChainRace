@@ -1,0 +1,3 @@
+[submodule "localRacer"]
+	path = localRacer
+	url = git@github.com:atikf3/localChainRacer.git
